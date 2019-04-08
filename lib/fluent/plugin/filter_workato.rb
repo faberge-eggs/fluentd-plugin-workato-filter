@@ -8,6 +8,7 @@ module Fluent::Plugin
     # Register this filter as "passthru"
     Fluent::Plugin.register_filter('workato', self)
     RAILS_FORMAT = /\s([\w]{3,})=([\w\.\-_\&\=\?\%\/\:]+)\b/
+    STOP_KEYS = ['_id', '_index', '_score', '_source', '_type', 'type', 'id', 'time', 'timestamp', 'message']
 
     # config_param works like other plugins
 
@@ -29,15 +30,22 @@ module Fluent::Plugin
     end
 
     def filter(tag, time, record)
-      begin
-        json = record['message'].match(/(\{.*\})/)[1]
-        record.merge!(json && JSON.parse(json))
+      remove_timestamp(record)
 
+      json = {}
+      begin
+        m = record['message'].match(/(\{.*\})/)
+        raise JSON::ParserError unless m
+
+        json = JSON.parse(m[1])
       rescue JSON::ParserError
         record['message'].scan(RAILS_FORMAT).each do |key, value|
-          record[key] = normalize_base_type(value)
+          json[key] = normalize_base_type(value)
         end
       end
+
+      json.delete_if { |key, _| STOP_KEYS.include?(key) }
+      record.merge!(json)
 
       set_metadata(record)
       normalize_values(record)
@@ -50,25 +58,38 @@ module Fluent::Plugin
       raise
     end
 
+    def remove_timestamp(record)
+      time = record['message'].match(/^\s*[^\s]+\s+/)
+      return unless time
+
+      begin
+        DateTime.parse(time[0])
+        record['message'].sub!(time[0], '')
+      rescue ArgumentError
+      end
+    end
+
     def normalize_types(record)
       TYPES.each do |item|
         value = record.dig(*item[:path])
 
         next unless value
-        next if value.is_a? item[:type]
+        next if item[:type] == 'Boolean' && (value.is_a?(TrueClass) || value.is_a?(FalseClass))
+        next if item[:type] != 'Boolean' && value.is_a?(item[:type])
 
         *prefix, key = item[:path]
         object = record
         object = record.dig(*prefix) unless prefix.empty?
 
-        case type
-        when Hash
+        # binding.pry if prefix == 'errors'
+        case item[:type].to_s
+        when 'Hash'
           object[key] = { 'value_str' => '_' + value.to_s }
 
-        when String
+        when 'String'
           object[key] = value.to_s
 
-        when Float
+        when 'Float'
           begin
             object[key] = Float(value)
           rescue ArgumentError
@@ -76,11 +97,11 @@ module Fluent::Plugin
             object["#{key}_value_str"] = value.to_s
           end
 
-        when TrueClass, FalseClass
+        when 'Boolean'
           object[key] = !!value
           object["#{key}_value_str"] = value.to_s
 
-        when DateTime
+        when 'DateTime'
           begin
             object[key] = DateTime.parse(value.to_s)
           rescue ArgumentError

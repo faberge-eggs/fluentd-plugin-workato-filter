@@ -2,8 +2,8 @@ lib = File.expand_path("../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
-  spec.name          = "workato_parser"
-  spec.version       = '0.0.1'
+  spec.name          = "fluentd-plugin-workato-filter"
+  spec.version       = '0.0.2'
   spec.authors       = ["Vadim Shauslki"]
   spec.email         = ["vadim.shauslki@workato.com"]
 

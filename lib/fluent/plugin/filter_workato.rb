@@ -30,7 +30,9 @@ module Fluent::Plugin
     end
 
     def filter(tag, time, record)
-      remove_timestamp(record)
+      return record if tag.match?(/fluent/)
+
+      # remove_timestamp(record)
 
       json = {}
       begin
@@ -103,7 +105,7 @@ module Fluent::Plugin
 
         when 'DateTime'
           begin
-            object[key] = DateTime.parse(value.to_s)
+            object[key] = DateTime.parse(value.to_s).iso8601
           rescue ArgumentError
             object[key] = ''
             object["#{key}_value_str"] = value.to_s
@@ -147,7 +149,7 @@ module Fluent::Plugin
           Float(value)
         rescue ArgumentError
           begin
-            new_values[key] = DateTime.parse(value) if is_timestamp?(value)
+            new_values[key] = DateTime.parse(value).iso8601 if key != 'message' && is_timestamp?(value)
           rescue ArgumentError
           end
         end

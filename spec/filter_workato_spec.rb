@@ -11,15 +11,25 @@ RSpec.describe Fluent::Plugin::WorkatoFilter do
   let(:driver) { Fluent::Test::Driver::Filter.new(described_class).configure(config) }
   let(:result) { driver.filtered_records.first }
 
-  it 'pass fluent.* log' do
+  it 'parses text with spaces' do
     driver.run do
       driver.feed("filter.test", event_time, {
         'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
         'tag' => 'fluent.warn',
+        'message' => '[2019-04-10T07:04:50.738] [WARN] webapp - Fetching list of users page=15. Attempt 1 failed. error="RequestError: Error: ESOCKETTIMEDOUT" test="My message"' })
+    end
+
+    expect(result['error']).to eq({ "value_str" => "_RequestError: Error: ESOCKETTIMEDOUT" })
+  end
+
+  it 'pass fluent.* log' do
+    driver.run do
+      driver.feed("fluent.warn", event_time, {
+        'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
         'message' => "failed to flush the buffer. retry_time=10 next_retry_seconds=2019-04-08 18:34:13 +0000 chunk=\"58608d2f638c8a3a7a33587b9283fc65\" error_class=Aws::Firehose::Errors::ValidationException error=\"1 validation error detected: Value 'java.nio.HeapByteBuffer[pos=0 lim=1029188 cap=1029188]' at 'records.36.member.data' failed to satisfy constraint: Member must have length less than or equal to 1024000\"" })
     end
 
-    expect(driver.filtered_records.first.keys.size).to eq 3
+    expect(driver.filtered_records.first.keys.size).to eq 2
   end
 
   it 'returns record if STOP_KEYS' do
@@ -43,7 +53,7 @@ RSpec.describe Fluent::Plugin::WorkatoFilter do
     expect(driver.filtered_records.size).to eq 1
     expect(result['ns']).to eq 'workato'
     expect(result['proctype']).to eq 'jobdispatcher-test'
-    expect(result['message'][0]).to eq '['
+    expect(result['message'][0]).to eq '2'
     expect(result['function_left']).to eq 'deactivate_flow'
     expect(result['flow_id']).to eq 26853
     expect(result['user_id']).to eq 2555

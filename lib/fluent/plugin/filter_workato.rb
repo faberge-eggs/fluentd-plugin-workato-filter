@@ -7,7 +7,7 @@ module Fluent::Plugin
 
     # Register this filter as "passthru"
     Fluent::Plugin.register_filter('workato', self)
-    RAILS_FORMAT = /\s([\w]{3,})=([\w\.\-_\&\=\?\%\/\:]+)\b/
+    RAILS_FORMAT = /\s([\w]{3,})=(([\w\.\-_\&\=\?\%\/\:]+)\b|"([^"]*)")/
     STOP_KEYS = ['_id', '_index', '_score', '_source', '_type', 'type', 'id', 'time', 'timestamp', 'message']
 
     # config_param works like other plugins
@@ -41,7 +41,8 @@ module Fluent::Plugin
 
         json = JSON.parse(m[1])
       rescue JSON::ParserError
-        record['message'].scan(RAILS_FORMAT).each do |key, value|
+        record['message'].scan(RAILS_FORMAT).each do |key, _, value1, value2|
+          value = value1 || value2
           json[key] = normalize_base_type(value)
         end
       end

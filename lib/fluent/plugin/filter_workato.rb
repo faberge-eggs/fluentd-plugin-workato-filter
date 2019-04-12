@@ -33,6 +33,8 @@ module Fluent::Plugin
       return record if tag.match?(/fluent/)
 
       # remove_timestamp(record)
+      remove_empty_lines(record)
+      rails_log_level(record)
 
       json = {}
       begin
@@ -59,6 +61,21 @@ module Fluent::Plugin
       # Without this, errors don't display in tests
       puts e.full_message
       raise
+    end
+
+    def rails_log_level(record)
+      case record['message']
+      when /rails\s+INFO/
+        record['log_level'] = 'info'
+      when /(rails\s+ERROR)|(rails\s+FATAL)/
+        record['log_level'] = 'error'
+      when /^D,.*DEBUG/
+        record['log_level'] = 'debug'
+      end
+    end
+
+    def remove_empty_lines(record)
+      record['message'].gsub!(/^\s*\n/, '')
     end
 
     def remove_timestamp(record)

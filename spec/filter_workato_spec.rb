@@ -11,11 +11,34 @@ RSpec.describe Fluent::Plugin::WorkatoFilter do
   let(:driver) { Fluent::Test::Driver::Filter.new(described_class).configure(config) }
   let(:result) { driver.filtered_records.first }
 
+  it 'add rails log level' do
+    driver.run do
+      driver.feed("filter.test", event_time, {
+        'message' => "2019-04-12T12:31:46.755428  rails  INFO  Waking up" })
+      driver.feed("filter.test", event_time, {
+        'message' => "2019-04-12T12:32:56.681887 [PID=1038] rails ERROR  [libr" })
+      driver.feed("filter.test", event_time, {
+        'message' => "D, [2019-04-12T04:41:13.614930 #1044] DEBUG" })
+    end
+
+    expect(result['log_level']).to eq "info"
+    expect(driver.filtered_records[1]['log_level']).to eq "error"
+    expect(driver.filtered_records[2]['log_level']).to eq "debug"
+  end
+
+  it 'remove empty lines in multiline' do
+    driver.run do
+      driver.feed("filter.test", event_time, {
+        'message' => "str1\n\n  str2\n\n   str3\nstr4" })
+    end
+
+    expect(result['message']).to eq "str1\n  str2\n   str3\nstr4"
+  end
+
   it 'parses text with spaces' do
     driver.run do
       driver.feed("filter.test", event_time, {
         'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
-        'tag' => 'fluent.warn',
         'message' => '[2019-04-10T07:04:50.738] [WARN] webapp - Fetching list of users page=15. Attempt 1 failed. error="RequestError: Error: ESOCKETTIMEDOUT" test="My message"' })
     end
 

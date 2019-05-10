@@ -113,4 +113,17 @@ RSpec.describe Fluent::Plugin::WorkatoFilter do
     expect(result['recipe_cursor']['after_value_str']).to eq 'is a date'
     expect(result['errors']).to eq({ "value_str" => "_is a hash" })
   end
+
+  it 'shrink message if record more than 1MB' do
+    driver.run do
+      driver.feed("filter.test", event_time, {
+        'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
+        'message' => %(INSTRUMENTATION  INFO INSTRUMENTATION UpdateRecipeCursor instrumentation: {"function":"Workato::Runtime::JobDispatcher::UpdateRecipeCursor.run","thread_id":47174614266540,"user_id":38978,"flow_id":802707,"recipe_cursor":{"since":"2015-03-30T19:06:27.000000+00:00","last_id":"0eb786f12ccff900cbe6a9c0f70e5ccc", "next_poll": "is a hash", "digest": 123, "document_id": "is a Float", "next_page": "is a boolean", "after": "is a date" },"cursor_md5":"6bca16f057c0106edebd2575c1ac5c0c", "errors": "is a hash", "tail": "#{'a'*1024*2024}", "tail2": {"tail3": "#{'a'*1024*2024}"}}) })
+    end
+
+    expect(result['message'].bytesize).to eq 10003
+    expect(result['tail'].bytesize).to eq 1003
+    expect(result['oversize']).to eq true
+    expect(result['tail2']['tail3'].bytesize).to eq 1003
+  end
 end

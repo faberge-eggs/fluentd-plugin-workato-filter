@@ -9,6 +9,7 @@ module Fluent::Plugin
     Fluent::Plugin.register_filter('workato', self)
     RAILS_FORMAT = /\s([\w]{3,})=(([\w\.\-_\&\=\?\%\/\:]+)\b|"([^"]*)")/
     STOP_KEYS = ['_id', '_index', '_score', '_source', '_type', 'type', 'id', 'time', 'timestamp', 'message']
+    RECORD_MAX_SIZE = 1024 * 1024 # 1 MB
 
     # config_param works like other plugins
 
@@ -55,6 +56,10 @@ module Fluent::Plugin
       set_metadata(record)
       normalize_values(record)
       normalize_types(record)
+      if record.to_s.bytesize >= RECORD_MAX_SIZE
+        record['oversize'] = true
+        shrink_record_to_max_size(record)
+      end
 
       record
     rescue => e
@@ -143,6 +148,24 @@ module Fluent::Plugin
 
       # Service name
       record['proctype'] = pod_parts[1..-3].join('-')
+    end
+
+    def shrink_record_to_max_size(record)
+      record.each do |key, value|
+        shrink_record_to_max_size(value) if value.is_a? Hash
+        if value.is_a? Array
+          value.clear
+          value[0] = 'truncated...'
+          next
+        end
+
+        next unless value.is_a? String
+
+        if value.size > 1000
+          record[key] = "#{value[0, 1000]}..."
+          record[key] = "#{value[0, 10000]}..." if key == 'message'
+        end
+      end
     end
 
     def normalize_values(record)

@@ -9,7 +9,7 @@ module Fluent::Plugin
     Fluent::Plugin.register_filter('workato', self)
     RAILS_FORMAT = /\s([\w]{3,})=(([\w\.\-_\&\=\?\%\/\:]+)\b|"([^"]*)")/
     STOP_KEYS = ['_id', '_index', '_score', '_source', '_type', 'type', 'id', 'time', 'timestamp', 'message']
-    RECORD_MAX_SIZE = 1024 * 1024 # 1 MB
+    RECORD_MAX_SIZE = 1000 * 1000 # Little less than 1 MB
 
     # config_param works like other plugins
 
@@ -56,7 +56,8 @@ module Fluent::Plugin
       set_metadata(record)
       normalize_values(record)
       normalize_types(record)
-      if record.to_s.bytesize >= RECORD_MAX_SIZE
+      normalize_calico(record)
+      if record.to_json.bytesize >= RECORD_MAX_SIZE
         record['oversize'] = true
         shrink_record_to_max_size(record)
       end
@@ -166,6 +167,15 @@ module Fluent::Plugin
           record[key] = "#{value[0, 10000]}..." if key == 'message'
         end
       end
+    end
+
+    def normalize_calico(record)
+      return unless record['ns'] == 'calico'
+      return if record['status'].is_a? Hash
+
+      record['status'] = {
+        value: record['status']
+      }
     end
 
     def normalize_values(record)

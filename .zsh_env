@@ -1,3 +1,4 @@
 alias rspec='docker run --rm -v `pwd`:/project -it fluent rspec'
 alias console='docker run --rm -v `pwd`:/project -it fluent bin/console'
 alias build='docker build -t fluent .'
+alias log_viewer='docker run --rm -v `pwd`:/project -p4567:4567 -it fluent bundle exec ruby log_viewer.rb'

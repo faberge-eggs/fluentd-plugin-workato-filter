@@ -18,6 +18,7 @@ RSpec.describe Fluent::Plugin::WorkatoFilter do
         'message' => "2019-08-07 20:08:26.269 [INFO][8] sync_server.go 825: Starting to send snapshot to client client=10.111.196.93:17748 connID=0x50 seqNo=0xa1 status=in-sync thread=\"kv-sender\"\n" })
     end
 
-    expect(result['status']).to eq({ value: 'in-sync' })
+    # expect(result['status']).to eq({ value: 'in-sync' })
+    expect(result.has_key? 'status').to eq(false)
   end
 end

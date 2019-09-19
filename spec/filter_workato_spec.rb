@@ -126,4 +126,55 @@ RSpec.describe Fluent::Plugin::WorkatoFilter do
     expect(result['oversize']).to eq true
     expect(result['tail2']['tail3'].bytesize).to eq 1003
   end
+
+  context "Request id" do
+    context 'key-value log' do
+      it 'request id at the end' do
+        driver.run do
+          driver.feed("filter.test", event_time, {
+            'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
+            'message' => '2019-07-31T16:45:37.893942 [PID=1009] rails  INFO request_id=35dfbc6c-dde9-43f1-b8c3-a19a54bce192 Started GET "/" for 172.23.0.1 at 2019-07-31T16:45:37.893885'
+          })
+        end
+
+        expect(result['request_id']).to eq("35dfbc6c-dde9-43f1-b8c3-a19a54bce192")
+      end
+
+      it 'request id at the begining' do
+        driver.run do
+          driver.feed("filter.test", event_time, {
+            'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
+            'message' => '2019-07-31T16:45:37.893942 [PID=1009] rails  INFO Started GET "/" for 172.23.0.1 at 2019-07-31T16:45:37.893885 request_id=35dfbc6c-dde9-43f1-b8c3-a19a54bce192'
+          })
+        end
+
+        expect(result['request_id']).to eq("35dfbc6c-dde9-43f1-b8c3-a19a54bce192")
+      end
+    end
+
+    context 'json log' do
+      it 'request id at the end' do
+        driver.run do
+          driver.feed("filter.test", event_time, {
+            'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
+            'message' => '2019-08-09T20:18:00.217440 [PID=5033] INSTRUMENTATION  INFO UX_INSTRUMENTATION FlowsController.jobs instrumentation: {"flow_id":"3","jobs_fetch_time":0.009877851989585906,"counters_calculate_time":0.0039647770463489,"jobs_map_time":0.006241467024665326,"elapsed_time":0.02018852799665183} request_id=b8413a16-6342-4671-8706-c658c3a51f3e'
+          })
+        end
+
+        expect(result['request_id']).to eq("b8413a16-6342-4671-8706-c658c3a51f3e")
+      end
+
+      it 'request id at the begining' do
+        driver.run do
+          driver.feed("filter.test", event_time, {
+            'kubernetes_pod' => 'workato-jobdispatcher-test-84f4cf49bb-fl5nk',
+            'message' => '2019-08-09T20:18:00.217440 [PID=5033] INSTRUMENTATION  INFO request_id=b8413a16-6342-4671-8706-c658c3a51f3e UX_INSTRUMENTATION FlowsController.jobs instrumentation: {"flow_id":"3","jobs_fetch_time":0.009877851989585906,"counters_calculate_time":0.0039647770463489,"jobs_map_time":0.006241467024665326,"elapsed_time":0.02018852799665183}'
+          })
+        end
+
+        expect(result['request_id']).to eq("b8413a16-6342-4671-8706-c658c3a51f3e")
+        expect(result['flow_id']).to eq('3')
+      end
+    end
+  end
 end

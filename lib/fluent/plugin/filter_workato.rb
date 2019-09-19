@@ -33,7 +33,6 @@ module Fluent::Plugin
     def filter(tag, time, record)
       return record if tag.match?(/fluent/)
 
-      # remove_timestamp(record)
       remove_empty_lines(record)
       rails_log_level(record)
 
@@ -43,10 +42,14 @@ module Fluent::Plugin
         raise JSON::ParserError unless m
 
         json = JSON.parse(m[1])
+        request_id = record['message'].match(/request_id=(\S+)/)
+        json['request_id'] = request_id[1] if request_id
       rescue JSON::ParserError
-        record['message'].scan(RAILS_FORMAT).each do |key, _, value1, value2|
-          value = value1 || value2
-          json[key] = normalize_base_type(value)
+        if !calico?(record)
+          record['message'].scan(RAILS_FORMAT).each do |key, _, value1, value2|
+            value = value1 || value2
+            json[key] = normalize_base_type(value)
+          end
         end
       end
 
@@ -56,7 +59,6 @@ module Fluent::Plugin
       set_metadata(record)
       normalize_values(record)
       normalize_types(record)
-      normalize_calico(record)
       if record.to_json.bytesize >= RECORD_MAX_SIZE
         record['oversize'] = true
         shrink_record_to_max_size(record)
@@ -138,6 +140,10 @@ module Fluent::Plugin
       end
     end
 
+    def calico?(record)
+      record['kubernetes_pod']&.match?(/^calico/)
+    end
+
     def set_metadata(record)
       return unless record.has_key?('kubernetes_pod')
 
@@ -167,15 +173,6 @@ module Fluent::Plugin
           record[key] = "#{value[0, 10000]}..." if key == 'message'
         end
       end
-    end
-
-    def normalize_calico(record)
-      return unless record['ns'] == 'calico'
-      return if record['status'].is_a? Hash
-
-      record['status'] = {
-        value: record['status']
-      }
     end
 
     def normalize_values(record)
